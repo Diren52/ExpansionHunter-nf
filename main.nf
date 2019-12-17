@@ -158,7 +158,7 @@ process trial {
 	script:
 	// Need to change the path for ExpansionHunter. 
 	"""
-	$HOME/summer-p/methods/ExpansionHunter/bin/ExpansionHunter --reads $reads --reference $ref --variant-catalog $var --output-prefix ${params.output_prefix}
+	$baseDir/bin/ExpansionHunter --reads $reads --reference $ref --variant-catalog $var --output-prefix ${params.output_prefix}
 	"""
 }
 
