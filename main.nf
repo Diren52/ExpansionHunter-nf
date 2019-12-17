@@ -24,9 +24,10 @@ def helpMessage() {
 	--reads				BAM/CRAM file with aligned reads
 	--reference			FASTA file with reference genome
 	--variant_catalog			JSON file with variants to genotype
-	--output_prefix			Prefix for the output files
+	--outDir			Directory to store results files
 
 	Optional arguments:
+	--verbose			To display ExpansionHunter process to STDOUT
 	--reads_index			Index to BAM/CRAM files. If not in same DIR
 	--region_extension_length	How far from on/off-target regions to search
 					for informative reads (Default = 1000)
@@ -59,7 +60,7 @@ params.reads = false
 params.reads_index = false
 params.reference = false
 params.variant_catalog = false
-params.output_prefix = false
+params.outDir = false
 params.region_extension_length = 1000
 params.sex = "female"
 params.log_level = "info"
@@ -121,14 +122,24 @@ if(params.variant_catalog) {
 	exit 1, "Variant Catalog file not specificied!"
 }
 
-if(!params.output_prefix) {
-	if(reads_file.getClass() == sun.nio.fs.UnixPath) {
-		params.output = "$baseDir/${reads_file.getBaseName()}_results"
-	} else {
-		params.output = "$baseDir/Results"
+if(params.outDir) {
+	try {
+		trial = file(params.outDir, type: 'dir', checkIfExists:true)
+	} catch (Exception e) {
+		trial = file(params.outDir, type: 'dir')
+		trial.mkdirs()
 	}
+	if(reads_file.getClass() == sun.nio.fs.UnixPath) {
+		output_prefix = "${reads_file.getSimpleName()}_results"
+	} else {
+		output_prefix = []
+		for (def read: reads_file) {
+			output_prefix.add("${read.getSimpleName()}_results")
+		}
+	}
+} else {
+	exit 1, "Output Directory not specified!"
 }
-
 
 process index {
 
@@ -149,17 +160,23 @@ process index {
 }
 
 process trial {
+	publishDir params.outDir, mode: 'copy'
+
 	input:
 	file reads from file_reads
 	file index from index_reads
 	file var from variant_file
 	file ref from reference_file
+	val x from output_prefix
+	
+	output:
+	file("*.vcf") into outChannel
+	file("*.bam") 
+	file("*.json")
 
 	script:
 	// Need to change the path for ExpansionHunter. 
 	"""
-	$baseDir/bin/ExpansionHunter --reads $reads --reference $ref --variant-catalog $var --output-prefix ${params.output_prefix}
+	$baseDir/bin/ExpansionHunter/bin/ExpansionHunter --reads $reads --reference $ref --variant-catalog $var --output-prefix ${x}
 	"""
 }
-
-
