@@ -81,10 +81,10 @@ if(params.reads){
 
 	reads_file = file(params.reads)
 	// Get the index files if they exists.
-	// Otherwise set flag to perform indexing using either salmon or bowtie2
+	// Otherwise set flag to perform indexing using either salmon or bowtie2 (to be included/discussed)
 	if(params.reads_index){
 		Channel.fromPath(params.reads_index, checkIfExists: true)
-				.ifEmpty {exit 2, "Index of BAM/CRAM file not found: ${params.reads_index}" }
+				.ifEmpty {exit 1, "Index of BAM/CRAM file not found: ${params.reads_index}" }
 		reads_index = file(params.reads_index)
 	} else if (reads_file.getClass() == sun.nio.fs.UnixPath) {
 		ext = (reads_file.getExtension() == "cram") ? ".crai" : ".bai"
@@ -98,7 +98,7 @@ if(params.reads){
 		}
 	} else {
 	//Probably wont be triggered
-		exit 2, "Index of BAM/CRAM file not specified/found!"
+		exit 1, "Index of BAM/CRAM file not specified/found!"
 	}
 } else {
 	exit 1, "BAM/CRAM file not specified!"
@@ -129,18 +129,11 @@ if(params.outDir) {
 		trial = file(params.outDir, type: 'dir')
 		trial.mkdirs()
 	}
-	if(reads_file.getClass() == sun.nio.fs.UnixPath) {
-		output_prefix = "${reads_file.getSimpleName()}_results"
-	} else {
-		output_prefix = []
-		for (def read: reads_file) {
-			output_prefix.add("${read.getSimpleName()}_results")
-		}
-	}
 } else {
 	exit 1, "Output Directory not specified!"
 }
-
+/*
+// No Need unless Touch is enable or required
 process index {
 
 	input:
@@ -158,13 +151,15 @@ process index {
 	"""
 
 }
-
+*/
 process trial {
 	publishDir params.outDir, mode: 'copy'
 
 	input:
-	file reads from file_reads
-	file index from index_reads
+//	file reads from file_reads
+//	file index from index_reads
+	file index from reads_index
+	each reads from reads_file
 	file var from variant_file
 	file ref from reference_file
 	val x from output_prefix
@@ -177,6 +172,6 @@ process trial {
 	script:
 	// Need to change the path for ExpansionHunter. 
 	"""
-	$baseDir/bin/ExpansionHunter/bin/ExpansionHunter --reads $reads --reference $ref --variant-catalog $var --output-prefix ${x}
+	$baseDir/bin/ExpansionHunter/bin/ExpansionHunter --reads $reads --reference $ref --variant-catalog $var --output-prefix "${reads.getSimpleName()}_results"
 	"""
 }
